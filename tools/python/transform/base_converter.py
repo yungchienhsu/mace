@@ -324,6 +324,7 @@ class TransformerRule(Enum):
     FP16_MATMUL_WEIGHT = 41
     FP16_GATHER_WEIGHT = 42
     QUANTIZE_LARGE_WEIGHTS = 43
+    TRANSFORM_SINGLE_BN_TO_DEPTHWISE_CONV = 44
 
 
 class ConverterInterface(object):
@@ -572,6 +573,10 @@ class ConverterOption(object):
                 # Need to be put after SORT_BY_EXECUTION
                 TransformerRule.ADD_QUANTIZE_TENSOR_RANGE,
             ]
+            if self._device == DeviceType.APU.value:
+                self._transformer_option = self._transformer_option + [
+                    TransformerRule.TRANSFORM_SINGLE_BN_TO_DEPTHWISE_CONV,
+                ]
             if self.quantize_large_weights:
                 self._transformer_option = self._transformer_option + [
                     TransformerRule.QUANTIZE_LARGE_WEIGHTS

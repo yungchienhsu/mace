@@ -112,6 +112,8 @@ class Transformer(base_converter.ConverterInterface):
                 self.fp16_gather_weight,
             TransformerRule.QUANTIZE_LARGE_WEIGHTS:
                 self.quantize_large_weights,
+            TransformerRule.TRANSFORM_SINGLE_BN_TO_DEPTHWISE_CONV:
+                self.transform_single_bn_to_depthwise_conv,
         }
 
         self._option = option
@@ -2266,6 +2268,39 @@ class Transformer(base_converter.ConverterInterface):
                 quantize_flag_arg.name = MaceKeyword.mace_quantize_flag_arg_str
                 quantize_flag_arg.i = 1
 
+            return True
+
+        return False
+
+    def transform_single_bn_to_depthwise_conv(self):
+        for op in self._model.op:
+            if op.type != MaceOp.BatchNorm.name:
+                continue
+
+            if len(op.input) != 3:
+                continue
+
+            producer = self._producer[op.input[0]]
+            if producer.type in [MaceOp.Conv2D.name,
+                                 MaceOp.Deconv2D.name,
+                                 MaceOp.DepthwiseDeconv2d.name,
+                                 MaceOp.DepthwiseConv2d.name]:
+                continue
+
+            op.type = MaceOp.DepthwiseConv2d.name
+            padding_arg = op.arg.add()
+            padding_arg.name = MaceKeyword.mace_padding_str
+            padding_arg.i = PaddingMode.VALID.value
+            strides_arg = op.arg.add()
+            strides_arg.name = MaceKeyword.mace_strides_str
+            strides_arg.ints.extend([1, 1])
+            dilation_arg = op.arg.add()
+            dilation_arg.name = MaceKeyword.mace_dilations_str
+            dilation_arg.ints.extend([1, 1])
+            for tensor in self._model.tensors:
+                if tensor.name == op.input[1]:
+                    tensor.dims[:] = [1, 1, 1, tensor.dims[0]]
+                    break
             return True
 
         return False

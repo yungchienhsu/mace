@@ -144,6 +144,19 @@ class ApuConverter(base_converter.ConverterInterface):
                 mace_check(len(op.input) == 3,
                            op.name + ': apu only support ' + op.type + ' op'
                            ' with 3 input')
+                for producer in self._model.op:
+                    if producer.output[0] == op.input[0]:
+                        input_scale = producer.quantize_info[0].scale
+                for input_tensor in self._model.input_info:
+                    if input_tensor.name == op.input[0]:
+                        input_scale = input_tensor.scale
+                for tensor in self._model.tensors:
+                    if tensor.name == op.input[1]:
+                        weight_scale = tensor.scale
+                output_scale = op.quantize_info[0].scale
+                mace_check(input_scale * weight_scale <= output_scale,
+                           op.name + ': apu only support input_scale *'
+                           ' weight_scale <= output_scale for ' + op.type)
                 self.add_size_tensor_from_arg(
                     op, MaceKeyword.mace_strides_str)
                 self.add_padding_tensor_from_arg(op)
